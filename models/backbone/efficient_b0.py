@@ -83,4 +83,3 @@ class Mbconv_block(nn.Module):
         x = self.bn2(x)
         return  x + input if self.short_cut else x 
 
-block       
