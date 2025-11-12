@@ -109,14 +109,6 @@ class Mbconv_block(nn.Module):
         recalibrated = torch.mul(weights,features)
         return recalibrated + input if self.short_cut  else recalibrated
 
-
-        
-        
-
-
-
-
-
 ###########################################
 # Efficientnetb0
 ###########################################

@@ -11,7 +11,7 @@ class testshort_cut(unittest.TestCase):
                 True if shortcut 
         """
         input = torch.randn(2,32,64,64) #images
-        block = Mbconv_block(custom_stride=1,ch_in=32,ch_out=32,expansion=6)
+        block = Mbconv_block(custom_stride=1,ch_in=32,ch_out=32,expansion=6,k=3,r=4)
 
         out = block(input)
         print(f'output shape {out.shape}')
