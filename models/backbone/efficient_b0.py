@@ -6,6 +6,7 @@ efficient_b0 class from papers
 #import pytorch library
 from torch import nn
 import  torch.nn.functional as F
+import torch
 
 ###########################################
 #Depthwise Separable convolutions
@@ -96,12 +97,20 @@ class Mbconv_block(nn.Module):
         else:
             x =  input  
         #Depthwise convo    
-        x = self.silu2(self.bn1(self.Depthwise_conv(x))) # (B,C,H,W)
+        features = self.silu2(self.bn1(self.Depthwise_conv(x))) # (B,C,H,W)
         #squeeze
-        squeezed = self.squeeze(x) #squeeze HxW  to 1X1 or use torch.mean(x,dim=[2,3])
-        x =  squeezed.view(squeezed.size(0),-1) #(B,C)
+        squeezed = self.squeeze(features) #squeeze HxW  to 1X1 or use torch.mean(x,dim=[2,3])
+        squeezed =  squeezed.view(squeezed.size(0),-1) #(B,C)
         #excite
-        excite = Excitation(x.size(1),self.reduction)
+        excite = Excitation(squeezed.size(1),self.reduction)
+        weights = excite.block(squeezed) 
+        weights = F.sigmoid(weights) #(B,C)
+        weights =  weights.view(weights.size(0),weights.size(1),1,1)
+        recalibrated = torch.mul(weights,features)
+        return recalibrated + input if self.short_cut  else recalibrated
+
+
+        
         
 
 
