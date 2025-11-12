@@ -98,9 +98,11 @@ class Mbconv_block(nn.Module):
             x =  input  
         #Depthwise convo    
         features = self.silu2(self.bn1(self.Depthwise_conv(x))) # (B,C,H,W)
+
         #squeeze
         squeezed = self.squeeze(features) #squeeze HxW  to 1X1 or use torch.mean(x,dim=[2,3])
         squeezed =  squeezed.view(squeezed.size(0),-1) #(B,C)
+
         #excite
         excite = Excitation(squeezed.size(1),self.reduction)
         weights = excite.block(squeezed) 
@@ -111,6 +113,7 @@ class Mbconv_block(nn.Module):
         #projection
         projection = self.pointwise_conv(recalibrated)
         output = self.bn2(projection)
+        
         return output + input if self.short_cut  else output
 
 ###########################################
