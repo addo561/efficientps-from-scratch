@@ -5,21 +5,23 @@ efficient_b0 class from papers
 """
 #import pytorch library
 from torch import nn
+import  torch.nn.functional as F
 
 ###########################################
 #Depthwise Separable convolutions
 ###########################################
-def Depthwise_conv(ch_in,expansion,custom_stride):
+def Depthwise_conv(ch_in,expansion,custom_stride,k):
     '''First layer for lightweigth  filtering ,Applies a single convolutional filter per input channel.
     Args:
         ch_in: input  channels
         expansion: expansion factor
         custom_stride: specified stride to use 
+        k: kernel_size
     '''
     Depthwise_conv = nn.Conv2d(
             in_channels=ch_in * expansion,
             out_channels=ch_in * expansion,
-            kernel_size=3,
+            kernel_size=k,
             groups=ch_in * expansion,
             stride = custom_stride,
             padding=1,
@@ -48,38 +50,62 @@ def pointwise_conv(ch_in,ch_out) :
 ###########################################
 #mobile conv block from mobilenetv2 paper 
 ###########################################
+def Excitation(channel,r):
+    return nn.Sequential(
+        nn.Linear(channel,channel//r),
+        nn.ReLU(inplace=True),
+        nn.Linear(channel//r,channel)
+    )
 
 class Mbconv_block(nn.Module):
     '''whole mbconv block for efficientNet_B0'''
-    def __init__(self,custom_stride,ch_in,ch_out,expansion):
+    def __init__(self,custom_stride,ch_in,ch_out,expansion,k,r):
         super(Mbconv_block,self).__init__()
         self.custom_stride = custom_stride
+        self.expansion = expansion
+        self.ch_in = ch_in
+        self.ch_out = ch_out
+        hidden_dim =  ch_in * expansion
+        self.reduction =  r
+
         #expansion
-        self.conv_1x1 = nn.Conv2d(ch_in,ch_in * expansion,kernel_size=1,stride=1,bias=False)
-        self.bn =  nn.BatchNorm2d(ch_in * expansion)
-        self.relu1 = nn.ReLU6(inplace=True)
+        self.conv_1x1 = nn.Conv2d(ch_in,hidden_dim,kernel_size=1,stride=1,bias=False)
+        self.bn =  nn.BatchNorm2d(hidden_dim)
+        self.silu1 = nn.SiLU(inplace=True)
 
         #depthwise
-        self.Depthwise_conv = Depthwise_conv(ch_in,expansion,custom_stride)
-        self.bn1 =  nn.BatchNorm2d(ch_in * expansion)
-        self.relu2 =  nn.ReLU6(inplace=True)
+        self.Depthwise_conv = Depthwise_conv(ch_in,expansion,custom_stride,k)
+        self.bn1 =  nn.BatchNorm2d(hidden_dim)
+        self.silu2 =  nn.SiLU(inplace=True)
+
+        #Squeeze it learns to emphasize the important channels and (Excitation)suppress the less useful ones.
+        self.squeeze = nn.AdaptiveAvgPool2d(1)
 
         #pointwise ,projection layer
-        self.pointwise_conv = pointwise_conv(ch_in * expansion,ch_out)
+        self.pointwise_conv = pointwise_conv(hidden_dim,ch_out)
         self.bn2 =  nn.BatchNorm2d(ch_out)
         self.short_cut = (custom_stride==1 and ch_in==ch_out)
 
     def forward(self,input):
-        #expantion
-        x =  self.conv_1x1(input) 
-        x  = self.bn(x)
-        x = self.relu1(x)
-        #Depthwise convolution
-        x =  self.Depthwise_conv(x)
-        x = self.bn1(x)
-        x = self.relu2(x)
-        #projection
-        x =  self.pointwise_conv(x)
-        x = self.bn2(x)
-        return  x + input if self.short_cut else x 
+        #Expand
+        if  self.expansion > 1:
+            x = self.silu1(self.bn1(self.conv_1x1(input))) #(B,C,H,W)
+        else:
+            x =  input  
+        #Depthwise convo    
+        x = self.silu2(self.bn1(self.Depthwise_conv(x))) # (B,C,H,W)
+        #squeeze
+        squeezed = self.squeeze(x) #squeeze HxW  to 1X1 or use torch.mean(x,dim=[2,3])
+        x =  squeezed.view(squeezed.size(0),-1) #(B,C)
+        #excite
+        excite = Excitation(x.size(1),self.reduction)
+        x = F.sigmoid(excite)
+
+
+
+
+
+###########################################
+# Efficientnetb0
+###########################################
 
