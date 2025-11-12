@@ -50,12 +50,15 @@ def pointwise_conv(ch_in,ch_out) :
 ###########################################
 #mobile conv block from mobilenetv2 paper 
 ###########################################
-def Excitation(channel,r):
-    return nn.Sequential(
-        nn.Linear(channel,channel//r),
+class Excitation(nn.Module):
+    def __init__(self,ch,r):
+        super(Excitation,self).__init__()
+        self.block = nn.Sequential(
+        nn.Linear(ch,ch//r),
         nn.ReLU(inplace=True),
-        nn.Linear(channel//r,channel)
+        nn.Linear(ch//r,ch)
     )
+
 
 class Mbconv_block(nn.Module):
     '''whole mbconv block for efficientNet_B0'''
@@ -99,7 +102,7 @@ class Mbconv_block(nn.Module):
         x =  squeezed.view(squeezed.size(0),-1) #(B,C)
         #excite
         excite = Excitation(x.size(1),self.reduction)
-        x = F.sigmoid(excite)
+        
 
 
 
