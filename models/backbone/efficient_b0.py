@@ -107,7 +107,11 @@ class Mbconv_block(nn.Module):
         weights = F.sigmoid(weights) #(B,C)
         weights =  weights.view(weights.size(0),weights.size(1),1,1)
         recalibrated = torch.mul(weights,features)
-        return recalibrated + input if self.short_cut  else recalibrated
+
+        #projection
+        projection = self.pointwise_conv(recalibrated)
+        output = self.bn2(projection)
+        return output + input if self.short_cut  else output
 
 ###########################################
 # Efficientnetb0
