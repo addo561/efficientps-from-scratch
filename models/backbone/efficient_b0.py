@@ -122,10 +122,9 @@ class Mbconv_block(nn.Module):
 class EfficientB0(nn.Module):
     """Basic EfficientnetB0 architecture
     """
-    def __init__(self,custom_stride,ch_in,ch_out,expansion,k):
+    def __init__(self,custom_stride,ch_in,ch_out,expansion):
         super(EfficientB0,self).__init__()
         self.expansion = expansion
-        self.k = k
         #First 3x3 conv ,1 layer with  32 output channels,batchnorm and  swish activation
         self.conv3x3 = nn.Conv2d(
             in_channels=ch_in,
@@ -142,10 +141,29 @@ class EfficientB0(nn.Module):
             in_channels=320,
             out_channels=ch_out,
             kernel_size=1,
+            stride=1
             )
         self.bn2  = nn.BatchNorm2d(ch_out)
         self.silu2 = nn.SiLU(inplace=True)
+
         #Global avgpool , FC layer and softmax
         self.Avgpool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Linear(ch_out,ch_out)
-        self.softmax=  nn.Softmax()
+        self.softmax=  nn.Softmax(dim=-1)
+
+        #mbconv blocks
+        '''mbconvs = nn.ModuleList([
+            Mbconv_block(custom_stride=1,ch_in=32,ch_out=16,expansion=1,k=3),
+            Mbconv_block(custom_stride=2,ch_in=16,ch_out=24,expansion=6,k=3) * 2,  
+            Mbconv_block(custom_stride=2,ch_in=24,ch_out=40,expansion=6,k=5) * 2,  
+            Mbconv_block(custom_stride=2,ch_in=40,ch_out=80,expansion=6,k=3)*  3,  
+            Mbconv_block(custom_stride=1,ch_in=80,ch_out=112,expansion=6,k=5) *  3,  
+            Mbconv_block(custom_stride=2,ch_in=112,ch_out=192,expansion=6,k=5) *  4, 
+            Mbconv_block(custom_stride=1,ch_in=192,ch_out=320,expansion=6,k=3), 
+        ])'''
+
+        #all subsequent layer in after 1  mbconvblock  have 1  stride
+        
+    def forward(self,input):
+        x = self.silu1(self.bn1(self.conv3x3(x))) #(b,c,h,w)
+        
