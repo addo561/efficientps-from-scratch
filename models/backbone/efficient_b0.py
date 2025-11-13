@@ -63,7 +63,7 @@ class Excitation(nn.Module):
 
 class Mbconv_block(nn.Module):
     '''whole mbconv block for efficientNet_B0'''
-    def __init__(self,custom_stride,ch_in,ch_out,expansion,k,r):
+    def __init__(self,custom_stride,ch_in,ch_out,expansion,k,r=4):
         super(Mbconv_block,self).__init__()
         self.custom_stride = custom_stride
         self.expansion = expansion
@@ -120,3 +120,7 @@ class Mbconv_block(nn.Module):
 # Efficientnetb0
 ###########################################
 
+class EfficientB0(nn.Module):
+    def __init__(self,custom_stride,ch_in,ch_out,expansion,k):
+        super(EfficientB0,self).__init__()
+        pass
