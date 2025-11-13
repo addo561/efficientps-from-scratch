@@ -65,7 +65,6 @@ class Mbconv_block(nn.Module):
     '''whole mbconv block for efficientNet_B0'''
     def __init__(self,custom_stride,ch_in,ch_out,expansion,k,r=4):
         super(Mbconv_block,self).__init__()
-        self.custom_stride = custom_stride
         self.expansion = expansion
         self.ch_in = ch_in
         self.ch_out = ch_out
@@ -121,6 +120,32 @@ class Mbconv_block(nn.Module):
 ###########################################
 
 class EfficientB0(nn.Module):
+    """Basic EfficientnetB0 architecture
+    """
     def __init__(self,custom_stride,ch_in,ch_out,expansion,k):
         super(EfficientB0,self).__init__()
-        pass
+        self.expansion = expansion
+        self.k = k
+        #First 3x3 conv ,1 layer with  32 output channels,batchnorm and  swish activation
+        self.conv3x3 = nn.Conv2d(
+            in_channels=ch_in,
+            out_channels=32,
+            kernel_size=3,
+            stride=2,
+            padding=1
+        )
+        self.bn1  = nn.BatchNorm2d(32)
+        self.silu1 = nn.SiLU(inplace=True)
+
+        #last  1x1 conv,batchnorm and  swish activation
+        self.conv1x1 = nn.Conv2d(
+            in_channels=320,
+            out_channels=ch_out,
+            kernel_size=1,
+            )
+        self.bn2  = nn.BatchNorm2d(ch_out)
+        self.silu2 = nn.SiLU(inplace=True)
+        #Global avgpool , FC layer and softmax
+        self.Avgpool = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Linear(ch_out,ch_out)
+        self.softmax=  nn.Softmax()
