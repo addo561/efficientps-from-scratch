@@ -85,6 +85,7 @@ class Mbconv_block(nn.Module):
 
         #Squeeze(in forward method) it learns to emphasize the important channels and (Excitation)suppress the less useful ones.
         self.excite = Excitation(hidden_dim,r)
+        self.avgpool = nn.AdaptiveAvgPool2d(1)
 
         #pointwise ,projection layer
         self.pointwise_conv = pointwise_conv(hidden_dim,ch_out)
@@ -101,7 +102,7 @@ class Mbconv_block(nn.Module):
         features = self.silu2(self.bn1(self.Depthwise_conv(x))) # (B,C,H,W)
 
         #squeeze
-        avgpool = F.adaptive_avg_pool2d(features,1) #squeeze HxW  to 1X1 or use torch.mean(x,dim=[2,3])
+        avgpool = self.avgpool(features) # squeeze HxW  to 1X1 or use torch.mean(x,dim=[2,3])
         squeezed =  avgpool.view(avgpool.size(0),-1) #(B,C)
         #excite
         weights = self.excite.block(squeezed) 
@@ -150,10 +151,14 @@ class EfficientNetB0(nn.Module):
         self.bn2  = nn.BatchNorm2d(ch_out)
         self.silu2 = nn.SiLU(inplace=True)
 
-        #Global avgpool ,FC layer and softmax
-        self.fc = nn.Linear(ch_out,1000) #lets say 1000 classes
-        self.softmax=  nn.Softmax(dim=-1)
-
+        #Global avgpool ,FC layer 
+        self.avgpool = nn.AdaptiveAvgPool2d(1)
+        self.lastlayers = nn.Sequential(
+            nn.Linear(ch_out,1000), #lets say 1000 classes
+            nn.Dropout(0.2)
+        )
+        
+        
         #mbconv blocks
         #all subsequent layer in after 1  mbconvblock  have 1  stride
         config = [
@@ -188,16 +193,15 @@ class EfficientNetB0(nn.Module):
                         )
                     )
         self.mbconv_blocks = nn.Sequential(*layers)
-
+        
         
     def forward(self,input):
         x = self.silu1(self.bn1(self.conv3x3(input))) #(b,c,h,w)
         output_mbconv_blocks = self.mbconv_blocks(x)  #b,c,h,w
         x = self.silu2(self.bn2(self.conv1x1(output_mbconv_blocks)))
-        x  = F.adaptive_avg_pool2d(x,1) #b,c,1,1
-        print(f'avg :{x.shape}')
+        x  = self.avgpool(x) #b,c,1,1
         x = x.view(x.size(0),-1)#b,c
-        x = self.softmax(self.fc(x))
+        x =self.lastlayers(x)
         return x
     
 
