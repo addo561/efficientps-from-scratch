@@ -7,6 +7,7 @@ efficient_b0 class from papers
 from torch import nn
 import  torch.nn.functional as F
 import torch
+from torchvision.models import EfficientNet_B0_Weights,efficientnet_b0
 
 ###########################################
 #Depthwise Separable convolutions
@@ -25,7 +26,7 @@ def Depthwise_conv(ch_in,expansion,custom_stride,k):
             kernel_size=k,
             groups=ch_in * expansion,
             stride = custom_stride,
-            padding=1,
+            padding=k//2,
             bias=False
             )
     
@@ -42,7 +43,8 @@ def pointwise_conv(ch_in,ch_out) :
             in_channels=ch_in,
             out_channels=ch_out,
             kernel_size=1,
-            bias=False
+            bias=False,
+            stride=1
             )
 
     return conv_1x1
@@ -81,8 +83,8 @@ class Mbconv_block(nn.Module):
         self.bn1 =  nn.BatchNorm2d(hidden_dim)
         self.silu2 =  nn.SiLU(inplace=True)
 
-        #Squeeze it learns to emphasize the important channels and (Excitation)suppress the less useful ones.
-        self.squeeze = nn.AdaptiveAvgPool2d(1)
+        #Squeeze(in forward method) it learns to emphasize the important channels and (Excitation)suppress the less useful ones.
+        self.excite = Excitation(hidden_dim,r)
 
         #pointwise ,projection layer
         self.pointwise_conv = pointwise_conv(hidden_dim,ch_out)
@@ -92,19 +94,17 @@ class Mbconv_block(nn.Module):
     def forward(self,input):
         #Expand
         if  self.expansion > 1:
-            x = self.silu1(self.bn1(self.conv_1x1(input))) #(B,C,H,W)
+            x = self.silu1(self.bn(self.conv_1x1(input))) #(B,C,H,W)
         else:
             x =  input  
         #Depthwise convo    
         features = self.silu2(self.bn1(self.Depthwise_conv(x))) # (B,C,H,W)
 
         #squeeze
-        squeezed = self.squeeze(features) #squeeze HxW  to 1X1 or use torch.mean(x,dim=[2,3])
-        squeezed =  squeezed.view(squeezed.size(0),-1) #(B,C)
-
+        avgpool = F.adaptive_avg_pool2d(features,1) #squeeze HxW  to 1X1 or use torch.mean(x,dim=[2,3])
+        squeezed =  avgpool.view(avgpool.size(0),-1) #(B,C)
         #excite
-        excite = Excitation(squeezed.size(1),self.reduction)
-        weights = excite.block(squeezed) 
+        weights = self.excite.block(squeezed) 
         weights = F.sigmoid(weights) #(B,C)
         weights =  weights.view(weights.size(0),weights.size(1),1,1)
         recalibrated = torch.mul(weights,features)
@@ -112,19 +112,23 @@ class Mbconv_block(nn.Module):
         #projection
         projection = self.pointwise_conv(recalibrated)
         output = self.bn2(projection)
-        
-        return output + input if self.short_cut  else output
+        if self.short_cut:
+            result =  output + input
+        else:
+            result = output
+
+        return result
 
 ###########################################
-# Efficientnetb0
+# EfficientNetb0
 ###########################################
 
-class EfficientB0(nn.Module):
+class EfficientNetB0(nn.Module):
     """Basic EfficientnetB0 architecture
     """
-    def __init__(self,custom_stride,ch_in,ch_out,expansion):
-        super(EfficientB0,self).__init__()
-        self.expansion = expansion
+    def __init__(self,ch_in=3,ch_out=1280):
+        super(EfficientNetB0,self).__init__()
+
         #First 3x3 conv ,1 layer with  32 output channels,batchnorm and  swish activation
         self.conv3x3 = nn.Conv2d(
             in_channels=ch_in,
@@ -147,8 +151,7 @@ class EfficientB0(nn.Module):
         self.silu2 = nn.SiLU(inplace=True)
 
         #Global avgpool ,FC layer and softmax
-        self.Avgpool = nn.AdaptiveAvgPool2d(1)
-        self.fc = nn.Linear(ch_out,ch_out)
+        self.fc = nn.Linear(ch_out,1000) #lets say 1000 classes
         self.softmax=  nn.Softmax(dim=-1)
 
         #mbconv blocks
@@ -188,10 +191,21 @@ class EfficientB0(nn.Module):
 
         
     def forward(self,input):
-        x = self.silu1(self.bn1(self.conv3x3(x))) #(b,c,h,w)
+        x = self.silu1(self.bn1(self.conv3x3(input))) #(b,c,h,w)
         output_mbconv_blocks = self.mbconv_blocks(x)  #b,c,h,w
         x = self.silu2(self.bn2(self.conv1x1(output_mbconv_blocks)))
-        x = self.softmax(self.fc(self.Avgpool(x)))
+        x  = F.adaptive_avg_pool2d(x,1) #b,c,1,1
+        print(f'avg :{x.shape}')
+        x = x.view(x.size(0),-1)#b,c
+        x = self.softmax(self.fc(x))
         return x
     
 
+
+'''using pretrained  Efficient net. custom one  will  require high  compute. 
+    our aim in image  segmentation with  efficientps
+'''
+def EfficientNetB0_pretrained():
+    w = EfficientNet_B0_Weights.IMAGENET1K_V1 #model weights
+    model = efficientnet_b0(weights=w) #main model
+    return  model
