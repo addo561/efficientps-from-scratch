@@ -146,24 +146,52 @@ class EfficientB0(nn.Module):
         self.bn2  = nn.BatchNorm2d(ch_out)
         self.silu2 = nn.SiLU(inplace=True)
 
-        #Global avgpool , FC layer and softmax
+        #Global avgpool ,FC layer and softmax
         self.Avgpool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Linear(ch_out,ch_out)
         self.softmax=  nn.Softmax(dim=-1)
 
         #mbconv blocks
-        '''mbconvs = nn.ModuleList([
-            Mbconv_block(custom_stride=1,ch_in=32,ch_out=16,expansion=1,k=3),
-            Mbconv_block(custom_stride=2,ch_in=16,ch_out=24,expansion=6,k=3) * 2,  
-            Mbconv_block(custom_stride=2,ch_in=24,ch_out=40,expansion=6,k=5) * 2,  
-            Mbconv_block(custom_stride=2,ch_in=40,ch_out=80,expansion=6,k=3)*  3,  
-            Mbconv_block(custom_stride=1,ch_in=80,ch_out=112,expansion=6,k=5) *  3,  
-            Mbconv_block(custom_stride=2,ch_in=112,ch_out=192,expansion=6,k=5) *  4, 
-            Mbconv_block(custom_stride=1,ch_in=192,ch_out=320,expansion=6,k=3), 
-        ])'''
-
         #all subsequent layer in after 1  mbconvblock  have 1  stride
+        config = [
+            (1,32,16,1,3,1),
+            (2,16,24,6,3,2),
+            (2,24,40,6,5,2),
+            (2,40,80,6,3,3),
+            (1,80,112,6,5,3),
+            (2,112,192,6,5,4),
+            (1,192,320,6,3,1),
+
+        ]
+        layers = []
+        for  s,input_channels,output_channels,e,kernel,repeat in config:
+                layers.append(
+                    Mbconv_block(
+                        custom_stride=s,
+                        ch_in=input_channels,
+                        ch_out=output_channels,
+                        expansion=e,
+                        k=kernel)
+                )
+                #repeated blocks with  stride 1 
+                for _ in  range(1,repeat):
+                    layers.append(
+                        Mbconv_block(
+                            custom_stride=1,
+                            ch_in=output_channels,
+                            ch_out=output_channels,
+                            expansion=e,
+                            k=kernel,
+                        )
+                    )
+        self.mbconv_blocks = nn.Sequential(*layers)
+
         
     def forward(self,input):
         x = self.silu1(self.bn1(self.conv3x3(x))) #(b,c,h,w)
-        
+        output_mbconv_blocks = self.mbconv_blocks(x)  #b,c,h,w
+        x = self.silu2(self.bn2(self.conv1x1(output_mbconv_blocks)))
+        x = self.softmax(self.fc(self.Avgpool(x)))
+        return x
+    
+
