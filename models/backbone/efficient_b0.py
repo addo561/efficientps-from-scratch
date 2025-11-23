@@ -233,9 +233,9 @@ class MultiScaleFeatureExtractor(nn.Module):
         # multiscale features
         c2 = self.main_model.features[:2](x)
         c3 = self.main_model.features[:3](x)
-        c5 = self.main_model.features[:4](x)
-        c9 = self.main_model.features[:8](x)
-        return  c2,c3,c5,c9
+        c4 = self.main_model.features[:4](x)
+        c5 = self.main_model.features[:8](x)
+        return  c2,c3,c4,c5
 
 
 
