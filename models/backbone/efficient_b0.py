@@ -212,9 +212,9 @@ class EfficientNetB0(nn.Module):
 '''
 
 
-class model(nn.Module):
+class MultiScaleFeatureExtractor(nn.Module):
     def __init__(self):
-        super(model,self).__init__()
+        super(MultiScaleFeatureExtractor,self).__init__()
         w = EfficientNet_B0_Weights.IMAGENET1K_V1 #model weights
         self.main_model = efficientnet_b0(weights=w) #main model
         self.main_model.classifier = nn.Identity()
@@ -236,7 +236,10 @@ class model(nn.Module):
         c5 = self.main_model.features[:4](x)
         c9 = self.main_model.features[:8](x)
         return  c2,c3,c5,c9
-m =  model()
-print(m.forward(torch.rand((1,3,224,224))))
+
+
+
+
+
 
 
