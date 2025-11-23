@@ -7,6 +7,7 @@ efficient_b0 class from papers
 from torch import nn
 import  torch.nn.functional as F
 import torch
+import torchvision
 from torchvision.models import EfficientNet_B0_Weights,efficientnet_b0
 
 ###########################################
@@ -207,9 +208,35 @@ class EfficientNetB0(nn.Module):
 
 
 '''using pretrained  Efficient net. custom one  will  require high  compute. 
-    our aim in image  segmentation with  efficientps
+    our aim is image  segmentation with  efficientps
 '''
-def EfficientNetB0_pretrained():
-    w = EfficientNet_B0_Weights.IMAGENET1K_V1 #model weights
-    model = efficientnet_b0(weights=w) #main model
-    return  model
+
+
+class model(nn.Module):
+    def __init__(self):
+        super(model,self).__init__()
+        w = EfficientNet_B0_Weights.IMAGENET1K_V1 #model weights
+        self.main_model = efficientnet_b0(weights=w) #main model
+        self.main_model.classifier = nn.Identity()
+
+        for b in  self.main_model.features: 
+            if isinstance(b,nn.Sequential):# all sequentials
+                for mbconv in b.children():
+                    if mbconv.__class__.__name__ == 'MBConv':
+                        for l in mbconv.children(): # contents of mbconv
+                            if isinstance(l,nn.Sequential): # sequential in mbconvs
+                                for  i,layer in  enumerate(l.children()):
+                                    if layer.__class__.__name__ == 'SqueezeExcitation':
+                                        l[i] = nn.Identity()
+    
+    def forward(self,x):
+        # multiscale features
+        c2 = self.main_model.features[:2](x)
+        c3 = self.main_model.features[:3](x)
+        c5 = self.main_model.features[:4](x)
+        c9 = self.main_model.features[:8](x)
+        return  c2,c3,c5,c9
+m =  model()
+print(m.forward(torch.rand((1,3,224,224))))
+
+
