@@ -33,24 +33,25 @@ class FPN(nn.Module):
         #use batchnorm + silu instead of  iABN Sync
         self.bn  = nn.BatchNorm2d(output_channels)
         self.silu = nn.SiLU(inplace=True)
+        self.L_relu = nn.LeakyReLU(0.1,inplace=True)
     def forward(self,x):
         c2,c3,c4,c5 = self.extractor(x)
-        block_5 = self.bn(self.silu(self.c5_conv(c5)))#(1,256,7,7)
-        block_4 = self.bn(self.silu(self.c4_conv(c4)))#(1,256,28,28)
-        block_3 = self.bn(self.silu(self.c3_conv(c3)))#(1,256,56,56)
-        block_2 = self.bn(self.silu(self.c2_conv(c2)))#(1,256,112,112)
+        block_5 = self.L_relu(self.bn(self.silu(self.c5_conv(c5))))#(1,256,7,7)
+        block_4 = self.L_relu(self.bn(self.silu(self.c4_conv(c4))))#(1,256,28,28)
+        block_3 = self.L_relu(self.bn(self.silu(self.c3_conv(c3))))#(1,256,56,56)
+        block_2 = self.L_relu(self.bn(self.silu(self.c2_conv(c2))))#(1,256,112,112)
         P5 = block_5
         #Upsample block 5 and add to  block4
         upsample_scale_4 = nn.Upsample(scale_factor=4)
         P5_up =  upsample_scale_4(P5)#(1,256,28,28)
         P4 = P5_up + block_4 # shape (1,256,28,28)
 
-        #upsample block4_5  and add to block3
+        #upsample P4  and add to block3
         upsample_scale_2 = nn.Upsample(scale_factor=2)
         P4_up = upsample_scale_2(P4) #(1,256,56,56)
         P3 = P4_up + block_3#(1,256,56,56)
 
-        #upsample block3_4_5 and add to block2
+        #upsample P3 and add to block2
         P3_up = upsample_scale_2(P3)#(1,256,112,112)
         P2 = P3_up + block_2#(1,256,112,112)
 
