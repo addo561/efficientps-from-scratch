@@ -33,18 +33,18 @@ class FPN(nn.Module):
         #use batchnorm + silu instead of  iABN Sync
         self.norm_act = nn.Sequential(
                     nn.BatchNorm2d(output_channels),
-                    nn.SiLU(inplace=True)
+                    nn.SiLU(inplace=True),
+                    nn.LeakyReLU(0.1,inplace=True)
         )
 
-        self.L_relu = nn.LeakyReLU(0.1,inplace=True)
         self.upsample_scale_4  = nn.Upsample(scale_factor=4)
         self.upsample_scale_2 = nn.Upsample(scale_factor=2)
     def forward(self,x):
         c2,c3,c4,c5 = self.extractor(x)
-        block_5 = self.L_relu(self.norm_act(self.c5_conv(c5)))#(1,256,7,7)
-        block_4 = self.L_relu(self.norm_act(self.c4_conv(c4)))#(1,256,28,28)
-        block_3 = self.L_relu(self.norm_act(self.c3_conv(c3)))#(1,256,56,56)
-        block_2 = self.L_relu(self.norm_act(self.c2_conv(c2)))#(1,256,112,112)
+        block_5 = self.norm_act(self.c5_conv(c5))#(1,256,7,7)
+        block_4 = self.norm_act(self.c4_conv(c4))#(1,256,28,28)
+        block_3 = self.norm_act(self.c3_conv(c3))#(1,256,56,56)
+        block_2 = self.norm_act(self.c2_conv(c2))#(1,256,112,112)
         P5 = block_5
         #Upsample block 5 and add to  block4
         P5_up =  self.upsample_scale_4(P5)#(1,256,28,28)

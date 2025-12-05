@@ -9,14 +9,18 @@ class biFPN(FPN):
     def __init__(self):
         super(biFPN,self).__init__()
         #separable convolution
-        self.depthwise = Depthwise_conv(ch_in=256,
+        self.separableconv = nn.Sequential(
+            Depthwise_conv(ch_in=256,
                                         expansion=1,
                                         custom_stride=1,
                                         k=3
-                                        ) #All blocks have channels 256, same for pointwise
-        self.pointwise =  pointwise_conv(ch_in=256,
+                                        ), #All blocks have channels 256, same for pointwise
+            pointwise_conv(ch_in=256,
                                          ch_out=256
                                          )
+        )
+        
+        
         self.downsample2 = nn.MaxPool2d(stride=2,kernel_size=2)
         self.downsample4 = nn.MaxPool2d(stride=4,kernel_size=4)
 
