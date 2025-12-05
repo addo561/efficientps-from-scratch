@@ -22,10 +22,10 @@ class biFPN(FPN):
 
     def forward(self,x):
         c2,c3,c4,c5 = self.extractor(x)
-        block_5 = self.L_relu(self.bn(self.silu(self.c5_conv(c5))))#(1,256,7,7)
-        block_4 = self.L_relu(self.bn(self.silu(self.c4_conv(c4))))#(1,256,28,28)
-        block_3 = self.L_relu(self.bn(self.silu(self.c3_conv(c3))))#(1,256,56,56)
-        block_2 = self.L_relu(self.bn(self.silu(self.c2_conv(c2))))#(1,256,112,112)
+        block_5 = self.L_relu(self.norm_act(self.c5_conv(c5)))#(1,256,7,7)
+        block_4 = self.L_relu(self.norm_act(self.c4_conv(c4)))#(1,256,28,28)
+        block_3 = self.L_relu(self.norm_act(self.c3_conv(c3)))#(1,256,56,56)
+        block_2 = self.L_relu(self.norm_act(self.c2_conv(c2)))#(1,256,112,112)
         p2 = block_2
 
         ### bottomUP approach
