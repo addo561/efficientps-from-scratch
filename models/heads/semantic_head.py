@@ -37,16 +37,12 @@ def Separableconvolution(ch_in,ch_out,expansion,custom_stride,k, dilate:tuple=No
 
 class LSFE(nn.Module):
     '''Our Large Scale Feature Extractor
+    Attributes:
+        input channels,output_channels
     '''
     
     def __init__(self,in_ch=256,out_ch = 128):
         super().__init__()
-        '''Our Large Scale Feature Extractor(LSFE)
-        Args:
-            input channels,output_channels
-        Returns:
-            fetaure map of shape -> (128,H,W)    
-        '''
         # 3 × 3 depthwise separable convolutions,with output filters of 128 
         self.SeparableConv1= Separableconvolution(ch_in=in_ch,
                                                   ch_out=out_ch,
@@ -66,6 +62,7 @@ class LSFE(nn.Module):
         )
 
     def forward(self,x):
+        '''Returns fetaure map of shape -> (128,H,W) '''
         x = self.SeparableConv1(x)
         conv1 = self.norm_act(x)#(b,128,h,w)
         x = self.SeparableConv2(conv1)
@@ -75,16 +72,12 @@ class LSFE(nn.Module):
    
 class DPC(nn.Module):
     '''DPC demonstrates a better performance with a minor increase in the number of parameters 
+        Dense Prediction Cells (DPC) to help capture long range contexts.
+    Atributes:
+        channels
     '''
     def __init__(self,channels=256):
         super().__init__()
-        ''' Dense Prediction Cells (DPC) to help capture long range contexts.
-        Args:
-            channels
-        Returns:
-            128,h,w feature map    
-
-        '''
         # Seperable  convolution with dilation rates
         # dilation rates (1,6)
         self.depthwise1_6 = Separableconvolution(ch_in=channels,
@@ -135,6 +128,7 @@ class DPC(nn.Module):
         )
         self.conv = nn.Conv2d(in_channels=1280,out_channels=128,kernel_size=1,stride=1)
     def forward(self,x):
+        '''128,h,w feature map   '''
         block1_6 = self.norm_act(self.depthwise1_6(x)) 
         block1_1 = self.norm_act(self.depthwise1_1(block1_6)) 
         block6_21 = self.norm_act(self.depthwise6_21(block1_6)) 
@@ -146,17 +140,13 @@ class DPC(nn.Module):
         
 
 class MC(nn.Module):
-    '''mitigate the mismatch between large-scale and small-scale features
+    '''mitigate the mismatch between large-scale and small-scale features,Mismatch Correction Module (MC) that correlates the small-scale features with respect to large-scale features.
+    Attributes:
+        input_channels,output_channels
     '''
 
     def __init__(self,in_ch = 256,out_ch=128):
         super().__init__()
-        '''Mismatch Correction Module (MC) that correlates the small-scale features with respect to large-scale features.
-        Args:
-            input channels,output_channels
-        Returns:
-            fetaure map of shape -> (128,H,W) upsampled by 2 
-        '''
         #3 × 3 depthwise separable convolutions,with output filters of 128 
         self.SeparableConv1 = Separableconvolution(ch_in=in_ch,
                                                   ch_out=out_ch,
@@ -176,6 +166,7 @@ class MC(nn.Module):
         )
         self.upsample =  nn.Upsample(scale_factor=2)
     def forward(self,x):
+        '''fetaure map of shape -> (128,H,W) upsampled by 2 '''
         x = self.SeparableConv1(x)
         conv1 = self.norm_act(x)#(b,128,h,w)
         x = self.SeparableConv2(conv1)
@@ -184,7 +175,9 @@ class MC(nn.Module):
     
 class SemanticHead(nn.Module):
     '''  final semantic head Containing all modules '''   
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        pass 
+    def __init__(self):
+        super().__init__()
+        self.dpc = DPC()
+        self.lsfe  =  LSFE()
+        self.mc  = MC()
 
