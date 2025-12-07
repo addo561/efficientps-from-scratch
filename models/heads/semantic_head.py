@@ -226,13 +226,6 @@ class SemanticHead(nn.Module):
     
 
 
-p4 = torch.rand(1,256,256,512)
-p8 = torch.rand(1,256,128,256)
-p16 = torch.rand(1,256,64,128)
-p32 = torch.rand(1,256,32,64)      
-module =  SemanticHead(num_cls=3)    
-x  =  module(p4,p8,p16,p32)
-print(x.shape)
 
 
 
