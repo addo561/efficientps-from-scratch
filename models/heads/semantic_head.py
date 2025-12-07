@@ -146,7 +146,7 @@ class MC(nn.Module):
         input_channels,output_channels
     '''
 
-    def __init__(self,in_ch = 256,out_ch=128):
+    def __init__(self,in_ch = 128,out_ch=128):
         super().__init__()
         #3 × 3 depthwise separable convolutions,with output filters of 128 
         self.SeparableConv1 = Separableconvolution(ch_in=in_ch,
@@ -176,38 +176,63 @@ class MC(nn.Module):
     
 class SemanticHead(nn.Module):
     '''  final semantic head Containing all modules '''   
-    def __init__(self):
+    def __init__(self,num_cls):
         super().__init__()
         self.dpc = DPC()
         self.lsfe  =  LSFE()
         self.mc  = MC()
+        self.conv = nn.Conv2d(in_channels=512,
+                              out_channels=num_cls,
+                              kernel_size=1,
+                              stride=1)
         self.upsample = nn.Upsample(scale_factor=4)
-        self.conv = nn.Conv2d(in_channels=512,out_channels=512,kernel_size=1,stride=1)
     def forward(self,p4,p8,p16,p32):
         lsfe4 = self.lsfe(p4)
         lsfe8 = self.lsfe(p8)
-        dpc16 = self.dpc(p16)
-        upsample_dpc_16 = self.upsample(dpc16)#maintain to concat(2)
-        dpc32 = self.dpc(p32) 
-        upsample_dpc_32 = self.upsample(dpc32)#maintain to concat(1)
+        dpc16 = self.dpc(p16)#maintain to concat(1)
+        dpc32 = self.dpc(p32) #maintain to concat(2)
         ###These correlation connections aggregate contextual information from small-scale features and characteristic large-scale features for better object boundary refinement.
         #combine dpc32 + dpc16 and pass through mc module
-        dpc16_32 = dpc16 + dpc32
+        dpc32_upsampled = F.interpolate(dpc32, 
+                                        size=dpc16.shape[2:], # Get (H, W) from dpc16
+                                        mode='bilinear', 
+                                        align_corners=False)#make sure h,w match
+        dpc16_32 = dpc16 + dpc32_upsampled
         mc_16_32 = self.mc(dpc16_32)
         #add  to lsfe8
-        lsfe_mc_16_32_8  = mc_16_32 + lsfe8 
-        upsample_lsfe_mc_16_32_8 = self.upsample(lsfe_mc_16_32_8)#maintain to concat(3)
+        mc_16_32_upsampled = F.interpolate(mc_16_32,
+                                           size=lsfe8.shape[2:],
+                                           mode='bilinear',
+                                           align_corners=False)#make sure h,w match
+        lsfe_mc_16_32_8  = mc_16_32_upsampled + lsfe8 #maintain to concat(3)
         #pass through  mc and add to lsfe4
         mc_16_32_8 = self.mc(lsfe_mc_16_32_8)
-        lsfe_16_32_8_4 = mc_16_32_8  + lsfe4 
-        upsample_lsfe_16_32_8_4 = self.upsample(lsfe_16_32_8_4)#maintain to concat(4)
-        final = torch.concat([upsample_dpc_16,upsample_dpc_32,upsample_lsfe_mc_16_32_8,upsample_lsfe_16_32_8_4],dim=1)
+        mc_16_32_8_upsampled = F.interpolate(mc_16_32_8,
+                                           size=lsfe4.shape[2:], 
+                                           mode='bilinear',
+                                           align_corners=False)#make sure h,w match
+        lsfe_mc_16_32_8_4 = mc_16_32_8_upsampled  + lsfe4 #maintain to concat(4)
+        target_size = p4.shape[2:] 
+        upsampled_tensors_to_concat = [
+            F.interpolate(dpc16, size=target_size, mode='bilinear', align_corners=False),
+            F.interpolate(dpc32, size=target_size, mode='bilinear', align_corners=False),
+            F.interpolate(lsfe_mc_16_32_8, size=target_size, mode='bilinear', align_corners=False),
+            F.interpolate(lsfe_mc_16_32_8_4, size=target_size, mode='bilinear', align_corners=False)
+        ]
+        final = torch.concat(upsampled_tensors_to_concat,dim=1)
         final = self.conv(final)
-        final = self.upsample(final) #(b,512,h,w)
-        final = F.softmax(final,dim=1)#(cls,h,w)
+        final = self.upsample(final) #(b,num_cls,h,w)
         return final
-        
+    
 
+
+p4 = torch.rand(1,256,256,512)
+p8 = torch.rand(1,256,128,256)
+p16 = torch.rand(1,256,64,128)
+p32 = torch.rand(1,256,32,64)      
+module =  SemanticHead(num_cls=3)    
+x  =  module(p4,p8,p16,p32)
+print(x.shape)
 
 
 
