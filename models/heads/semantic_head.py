@@ -182,7 +182,7 @@ class SemanticHead(nn.Module):
         self.lsfe  =  LSFE()
         self.mc  = MC()
         self.upsample = nn.Upsample(scale_factor=4)
-        self.conv = nn.Conv2d(in_channels=512,kernel_size=1,stride=1)
+        self.conv = nn.Conv2d(in_channels=512,out_channels=512,kernel_size=1,stride=1)
     def forward(self,p4,p8,p16,p32):
         lsfe4 = self.lsfe(p4)
         lsfe8 = self.lsfe(p8)
@@ -204,7 +204,7 @@ class SemanticHead(nn.Module):
         final = torch.concat([upsample_dpc_16,upsample_dpc_32,upsample_lsfe_mc_16_32_8,upsample_lsfe_16_32_8_4],dim=1)
         final = self.conv(final)
         final = self.upsample(final) #(b,512,h,w)
-        final = F.softmax(final,dim=-1)
+        final = F.softmax(final,dim=1)#(cls,h,w)
         return final
         
 
