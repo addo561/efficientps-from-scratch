@@ -181,4 +181,10 @@ class MC(nn.Module):
         x = self.SeparableConv2(conv1)
         conv2 = self.norm_act(x)  #(b,128,h,w)
         return self.upsample(conv2)
+    
+class SemanticHead(nn.Module):
+    '''  final semantic head Containing all modules '''   
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        pass 
 
