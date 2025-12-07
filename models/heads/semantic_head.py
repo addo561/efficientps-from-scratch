@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import  torch.nn.functional as F
 ### proposed semantic segmentation head 
 
 #added a dilation
@@ -180,4 +181,36 @@ class SemanticHead(nn.Module):
         self.dpc = DPC()
         self.lsfe  =  LSFE()
         self.mc  = MC()
+        self.upsample = nn.Upsample(scale_factor=4)
+        self.conv = nn.Conv2d(in_channels=512,kernel_size=1,stride=1)
+    def forward(self,p4,p8,p16,p32):
+        lsfe4 = self.lsfe(p4)
+        lsfe8 = self.lsfe(p8)
+        dpc16 = self.dpc(p16)
+        upsample_dpc_16 = self.upsample(dpc16)#maintain to concat(2)
+        dpc32 = self.dpc(p32) 
+        upsample_dpc_32 = self.upsample(dpc32)#maintain to concat(1)
+        ###These correlation connections aggregate contextual information from small-scale features and characteristic large-scale features for better object boundary refinement.
+        #combine dpc32 + dpc16 and pass through mc module
+        dpc16_32 = dpc16 + dpc32
+        mc_16_32 = self.mc(dpc16_32)
+        #add  to lsfe8
+        lsfe_mc_16_32_8  = mc_16_32 + lsfe8 
+        upsample_lsfe_mc_16_32_8 = self.upsample(lsfe_mc_16_32_8)#maintain to concat(3)
+        #pass through  mc and add to lsfe4
+        mc_16_32_8 = self.mc(lsfe_mc_16_32_8)
+        lsfe_16_32_8_4 = mc_16_32_8  + lsfe4 
+        upsample_lsfe_16_32_8_4 = self.upsample(lsfe_16_32_8_4)#maintain to concat(4)
+        final = torch.concat([upsample_dpc_16,upsample_dpc_32,upsample_lsfe_mc_16_32_8,upsample_lsfe_16_32_8_4],dim=1)
+        final = self.conv(final)
+        final = self.upsample(final) #(b,512,h,w)
+        final = F.softmax(final,dim=-1)
+        return final
+        
+
+
+
+
+        
+
 
