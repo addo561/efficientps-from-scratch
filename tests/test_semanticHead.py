@@ -21,7 +21,7 @@ class TestSemanticHead:
         module = DPC()
         x =  module(test_input) 
         assert x.shape== expected,f'Test failed for input shape {x.shape} expected {expected}'  
-    def fullhead(self):
-        module =  SemanticHead()    
-        x  =  module(p4,p8,p16,p32)
-        assert x.shape[2] == 1024
+    def semantichead(self):
+        module = SemanticHead(num_cls=3)
+        x = module(p4,p8,p16,p32)
+        assert x.shape == (1,3,1024,2048)
