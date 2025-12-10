@@ -3,11 +3,8 @@
 from torch import nn
 import torch
 from models.backbone.efficient_b0 import  MultiScaleFeatureExtractor
+from inplace_abn import InPlaceABN
 
-#multiscale features
-features = MultiScaleFeatureExtractor()
-c2,c3,c4,c5 =  features.forward(torch.rand(1,3,224,224))
-#print(c2.shape,c3.shape,c4.shape,c5.shape) #check input channels
 
 #from c5 -> c2 downsampled 
 class FPN(nn.Module):

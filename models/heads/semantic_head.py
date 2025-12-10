@@ -1,6 +1,8 @@
 import torch
 from torch import nn
 import  torch.nn.functional as F
+from inplace_abn import InPlaceABN
+
 ### proposed semantic segmentation head 
 
 #added a dilation
