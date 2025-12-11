@@ -58,12 +58,7 @@ class LSFE(nn.Module):
                                                   k=3,
                                                   custom_stride=1)
         #use batchnorm + silu instead of  iABN Sync
-        self.norm_act = nn.Sequential(
-                nn.BatchNorm2d(out_ch),
-                nn.SiLU(inplace=True),
-                nn.LeakyReLU(0.1,inplace=True)
-        )
-
+        self.norm_act = InPlaceABN(out_ch,activation='leaky_relu',activation_param=0.01)
     def forward(self,x):
         '''Returns fetaure map of shape -> (128,H,W) '''
         x = self.SeparableConv1(x)
@@ -124,11 +119,7 @@ class DPC(nn.Module):
                                                 k=3,
                                                 padding=(6,3)
                                                 )
-        self.norm_act = nn.Sequential(
-            nn.BatchNorm2d(channels),
-            nn.SiLU(inplace=True),
-            nn.LeakyReLU(0.1,inplace=True)
-        )
+        self.norm_act = InPlaceABN(channels,activation='leaky_relu',activation_param=0.01)
         self.conv = nn.Conv2d(in_channels=1280,out_channels=128,kernel_size=1,stride=1)
     def forward(self,x):
         '''128,h,w feature map   '''
@@ -162,11 +153,7 @@ class MC(nn.Module):
                                                   k=3,
                                                   custom_stride=1)
         #use batchnorm + silu instead of  iABN Sync
-        self.norm_act = nn.Sequential(
-                nn.BatchNorm2d(out_ch),
-                nn.SiLU(inplace=True),
-                nn.LeakyReLU(0.1,inplace=True)
-        )
+        self.norm_act = InPlaceABN(out_ch,activation='leaky_relu',activation_param=0.01)
         self.upsample =  nn.Upsample(scale_factor=2)
     def forward(self,x):
         '''fetaure map of shape -> (128,H,W) upsampled by 2 '''

@@ -28,11 +28,7 @@ class FPN(nn.Module):
                                  kernel_size=1,
                                  stride=1)
         #use batchnorm + silu instead of  iABN Sync
-        self.norm_act = nn.Sequential(
-                    nn.BatchNorm2d(output_channels),
-                    nn.SiLU(inplace=True),
-                    nn.LeakyReLU(0.1,inplace=True)
-        )
+        self.norm_act = InPlaceABN(output_channels,activation='leaky_relu',activation_param=0.01)
 
         self.upsample_scale_4  = nn.Upsample(scale_factor=4)
         self.upsample_scale_2 = nn.Upsample(scale_factor=2)
