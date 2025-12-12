@@ -1,5 +1,6 @@
 ##instance head
 from detectron2.modeling.roi_heads import ROI_MASK_HEAD_REGISTRY, BaseMaskRCNNHead,ROI_HEADS_REGISTRY,StandardROIHeads
+from detectron2.modeling.roi_heads.mask_head import mask_rcnn_loss
 from inplace_abn import InPlaceABN
 from torch import nn
 from semantic_head import Separableconvolution
@@ -47,26 +48,16 @@ class EfficientPSMaskHead(BaseMaskRCNNHead):
                 nn.init.kaiming_normal_(param, mode="fan_out", nonlinearity="leaky_relu")
 
 
-    def forward(self,x,instances):
+    def forward(self,x,instances=None):
         # x shape: [N_proposals, Channels, 14, 14]
         x =   self.conv_layers(x)
         x = self.deconv(x)
         x = self.deconv_abn(x)
-        return  self.predictor(x)
-    def losses(self):
-        pass 
-
-
-@ROI_HEADS_REGISTRY.register()
-class  EfficientPSROIHeads(StandardROIHeads):
-    """
-    This class orchestrates the instance branch.
+        logits = self.predictor(x)
+        return logits
     
-    1. It takes features from P2-P5 (strides 4-32).
-    2. It receives Proposals from RPN.
-    3. It runs the Box Head (Standard 2FC) -> Outputs: Class, Box
-    4. It runs the Mask Head (Our Custom Class) -> Outputs: Mask
-    """
-    pass
+
+        
+
 
 

@@ -26,6 +26,8 @@ class biFPN(FPN,Backbone):
         
         self.downsample2 = nn.MaxPool2d(stride=2,kernel_size=2)
         self.downsample4 = nn.MaxPool2d(stride=4,kernel_size=4)
+        self.out_feats_channels = {'P2':256,'P3':256, 'P4':256,'P5':256}
+        self.out_feats_strides = {'P2':4,'P3':8, 'P4':16,'P5':32}
 
     def forward(self,x):
         c2,c3,c4,c5 = self.extractor(x)
@@ -82,10 +84,11 @@ class biFPN(FPN,Backbone):
                  'P5':P32}
     
     def output_shape(self):
-        return {"P2": ShapeSpec(channels=256, stride=1),
-                "P3": ShapeSpec(channels=256, stride=1),
-                "P4": ShapeSpec(channels=256, stride=1),
-                "P5": ShapeSpec(channels=256, stride=1),}
+        return {name : ShapeSpec(
+            channels=self.out_feats_channels[name],
+            stride=self.out_feats_strides[name]
+                ) for _,name in self.out_feats_channels.items()
+        }
 
 
 

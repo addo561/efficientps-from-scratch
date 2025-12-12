@@ -173,6 +173,13 @@ class SemanticHead(nn.Module):
         # 1. Capture info from config
         self.ignore_index = cfg.MODEL.SEM_SEG_HEAD.IGNORE_VALUE
         self.num_classes = cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES
+        class_weights = cfg.MODEL.SEM_SEG_HEAD.get("CLASS_WEIGHTS", None)
+
+        if class_weights is not None:        
+            self.register_buffer('cls_weight',class_weights)
+        else:
+            self.cls_weight = None
+
         self.dpc = DPC()
         self.lsfe  =  LSFE()
         self.mc  = MC()
@@ -181,7 +188,7 @@ class SemanticHead(nn.Module):
                               kernel_size=1,
                               stride=1)
         self.upsample = nn.Upsample(scale_factor=4)
-        
+
     def forward(self,features,targets=None):
         lsfe4 = self.lsfe(features['P2'])
         lsfe8 = self.lsfe(features['P3'])
@@ -224,7 +231,20 @@ class SemanticHead(nn.Module):
             return final
         
     def losses(self,logits,tg):
-        pass
+        if logits.shape[-2:] != tg.shape[-2:]:
+            logits = nn.functional.interpolate(
+                input=logits,
+                size=tg.shape[-2:],
+                mode='bilinear',
+                align_corners=False
+            )
+        criterion = nn.CrossEntropyLoss(
+            ignore_index=self.ignore_index,
+            weight=self.cls_weight
+        )
+        loss= criterion(logits,tg)
+
+        return  loss
 
 
 
