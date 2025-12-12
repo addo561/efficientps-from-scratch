@@ -2,7 +2,9 @@ import torch
 from torch import nn
 import  torch.nn.functional as F
 from inplace_abn import InPlaceABN
-
+from detectron2.modeling.meta_arch import SEM_SEG_HEADS_REGISTRY
+from detectron2.config import get_cfg
+cfg = get_cfg()
 ### proposed semantic segmentation head 
 
 #added a dilation
@@ -163,23 +165,28 @@ class MC(nn.Module):
         conv2 = self.norm_act(x)  #(b,128,h,w)
         return self.upsample(conv2)
     
+@SEM_SEG_HEADS_REGISTRY.register()
 class SemanticHead(nn.Module):
     '''  final semantic head Containing all modules '''   
-    def __init__(self,num_cls):
+    def __init__(self,cfg,input_shape):
         super().__init__()
+        # 1. Capture info from config
+        self.ignore_index = cfg.MODEL.SEM_SEG_HEAD.IGNORE_VALUE
+        self.num_classes = cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES
         self.dpc = DPC()
         self.lsfe  =  LSFE()
         self.mc  = MC()
         self.conv = nn.Conv2d(in_channels=512,
-                              out_channels=num_cls,
+                              out_channels=self.num_classes,
                               kernel_size=1,
                               stride=1)
         self.upsample = nn.Upsample(scale_factor=4)
-    def forward(self,p4,p8,p16,p32):
-        lsfe4 = self.lsfe(p4)
-        lsfe8 = self.lsfe(p8)
-        dpc16 = self.dpc(p16)#maintain to concat(1)
-        dpc32 = self.dpc(p32) #maintain to concat(2)
+        
+    def forward(self,features,targets=None):
+        lsfe4 = self.lsfe(features['P2'])
+        lsfe8 = self.lsfe(features['P3'])
+        dpc16 = self.dpc(features['P4'])#maintain to concat(1)
+        dpc32 = self.dpc(features['P5']) #maintain to concat(2)
         ###These correlation connections aggregate contextual information from small-scale features and characteristic large-scale features for better object boundary refinement.
         #combine dpc32 + dpc16 and pass through mc module
         dpc32_upsampled = F.interpolate(dpc32, 
@@ -201,7 +208,7 @@ class SemanticHead(nn.Module):
                                            mode='bilinear',
                                            align_corners=False)#make sure h,w match
         lsfe_mc_16_32_8_4 = mc_16_32_8_upsampled  + lsfe4 #maintain to concat(4)
-        target_size = p4.shape[2:] 
+        target_size = features['P2'].shape[2:] 
         upsampled_tensors_to_concat = [
             F.interpolate(dpc16, size=target_size, mode='bilinear', align_corners=False),
             F.interpolate(dpc32, size=target_size, mode='bilinear', align_corners=False),
@@ -211,8 +218,13 @@ class SemanticHead(nn.Module):
         final = torch.concat(upsampled_tensors_to_concat,dim=1)
         final = self.conv(final)
         final = self.upsample(final) #(b,num_cls,h,w)
-        return final
-    
+        if self.training:
+            return {'loss_sem_seg':self.losses(logits=final,tg=targets)}
+        else:
+            return final
+        
+    def losses(self,logits,tg):
+        pass
 
 
 

@@ -3,10 +3,13 @@ import torch
 import torch.nn.functional as F
 from models.backbone.efficient_b0 import Depthwise_conv,pointwise_conv
 from models.neck.fpn import FPN
+from detectron2.modeling import BACKBONE_REGISTRY, Backbone, ShapeSpec
+
 
 ### BiFPNt -> p4,p8,p16,p32
-class biFPN(FPN):
-    def __init__(self):
+@BACKBONE_REGISTRY.register()
+class biFPN(FPN,Backbone):
+    def __init__(self,cfg,input_shape):
         super(biFPN,self).__init__()
         #separable convolution
         self.separableconv = nn.Sequential(
@@ -73,7 +76,16 @@ class biFPN(FPN):
         P32 = self.pointwise(P32)
         P32 = self.L_relu(P32)
 
-        return  P4,P8,P16,P32
+        return  {'P2':P4,
+                 'P3':P8, 
+                 'P4':P16,
+                 'P5':P32}
+    
+    def output_shape(self):
+        return {"P2": ShapeSpec(channels=256, stride=1),
+                "P3": ShapeSpec(channels=256, stride=1),
+                "P4": ShapeSpec(channels=256, stride=1),
+                "P5": ShapeSpec(channels=256, stride=1),}
 
 
 
