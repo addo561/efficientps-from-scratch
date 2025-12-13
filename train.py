@@ -3,10 +3,9 @@ import os
 from detectron2.engine import DefaultTrainer, default_argument_parser, launch, default_setup
 from detectron2.checkpoint import DetectionCheckpointer
 
-# Import your custom registration functions
-# This triggers the @REGISTRY.register() lines in your files
+# This triggers the @REGISTRY.register() 
 from models.efficientps import EfficientPS
-from models.neck.bifpn import BiFPNBackbone
+from models.neck.bifpn import biFPN
 from models.heads.instance_head import EfficientPSMaskHead
 from models.heads.semantic_head import SemanticHead
 from configs import setup_efficient_config
