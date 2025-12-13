@@ -45,6 +45,8 @@ def  setup_efficient_config(num_classes,weights):
     cfg.MODEL.SEM_SEG_HEAD.COMMON_STRIDE = 4
     cfg.MODEL.SEM_SEG_HEAD.LOSS_WEIGHT = 1.0
 
-    cfg. MODEL.SEM_SEG_HEAD.CLASS_WEIGHTS = weights
+    cfg.MODEL.SEM_SEG_HEAD.CLASS_WEIGHTS = weights
+
+    cfg.MODEL.META_ARCHITECTURE = "EfficientPS"
 
     return cfg
