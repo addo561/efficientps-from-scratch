@@ -8,7 +8,7 @@ from models.efficientps import EfficientPS
 from models.neck.bifpn import biFPN
 from models.heads.instance_head import EfficientPSMaskHead
 from models.heads.semantic_head import SemanticHead
-from configs import setup_efficient_config
+from configs.config import setup_efficient_config
 
 def main(args):
     # 1. Setup Config

@@ -1,9 +1,11 @@
 
-from detectron2.config import get_cfg
+from detectron2.config import get_cfg,CfgNode
 from detectron2 import model_zoo
 
 _C = get_cfg()
 _C.MODEL.SEM_SEG_HEAD.CLASS_WEIGHTS = []
+_C.MODEL.PANOPTIC_FUSION = CfgNode()
+_C.MODEL.PANOPTIC_FUSION.OVERLAP_THRESH = 0.5
 
 def  setup_efficient_config(num_classes,weights):
     cfg =  get_cfg()

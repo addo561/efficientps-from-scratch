@@ -3,7 +3,7 @@ from detectron2.modeling.roi_heads import ROI_MASK_HEAD_REGISTRY, BaseMaskRCNNHe
 from detectron2.modeling.roi_heads.mask_head import mask_rcnn_loss
 from inplace_abn import InPlaceABN
 from torch import nn
-from semantic_head import Separableconvolution
+from models.heads.semantic_head import Separableconvolution
 
 # ---------------------------------------------------------
 # 1. The Custom Mask Head
